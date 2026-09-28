@@ -9,6 +9,7 @@ use crossterm::event::Event;
 
 use keifu::{
     app::App,
+    config::FileView,
     debug_server,
     event::{EventReader, InputEvent},
     git::configure_git_extensions,
@@ -33,6 +34,10 @@ struct Cli {
     /// Listen for debug commands (NDJSON over TCP, e.g. 127.0.0.1:7167)
     #[arg(long, value_name = "ADDR")]
     debug_listen: Option<String>,
+
+    /// Where file diffs are drawn, overriding the config file
+    #[arg(long, value_enum)]
+    file_view: Option<FileView>,
 }
 
 fn main() -> Result<()> {
@@ -57,6 +62,9 @@ fn main() -> Result<()> {
 
     // Initialize application
     let mut app = App::new()?;
+    if let Some(file_view) = cli.file_view {
+        app.set_file_view(file_view);
+    }
 
     // Initialize terminal
     let mut terminal = tui::init()?;

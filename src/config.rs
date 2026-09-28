@@ -10,6 +10,7 @@ use serde::Deserialize;
 pub struct Config {
     pub refresh: RefreshConfig,
     pub graph: GraphConfig,
+    pub ui: UiConfig,
 }
 
 /// Commit graph display configuration
@@ -28,6 +29,24 @@ impl Default for GraphConfig {
             show_tags: true,
         }
     }
+}
+
+/// Where the file diff is drawn
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum FileView {
+    /// Take over the whole screen
+    #[default]
+    Fullscreen,
+    /// Take over the graph pane, keeping commit detail and file list visible
+    Replace,
+}
+
+/// UI layout configuration
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct UiConfig {
+    pub file_view: FileView,
 }
 
 /// Auto-refresh configuration

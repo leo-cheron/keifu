@@ -137,47 +137,16 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         return;
     }
 
+    let replace_graph = app.file_view_replace();
+
     // FileDiff mode: full-screen diff view
-    if let AppMode::FileDiff {
-        content,
-        rendered_lines,
-        scroll_offset,
-        horizontal_offset,
-        file_index,
-        file_list,
-        ..
-    } = &app.mode
-    {
+    if !replace_graph && matches!(app.mode, AppMode::FileDiff { .. }) {
         let vertical = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Min(0), Constraint::Length(1)])
             .split(area);
 
-        // Update viewport dimensions for scroll calculations (minus borders)
-        app.diff_viewport_height = vertical[0].height.saturating_sub(2);
-        app.diff_viewport_width = vertical[0].width.saturating_sub(2);
-
-        let total_lines = rendered_lines.len();
-        let scroll_position = *scroll_offset;
-
-        frame.render_widget(
-            FileDiffViewWidget::new(
-                content,
-                rendered_lines,
-                *scroll_offset,
-                *horizontal_offset,
-                *file_index,
-                file_list.len(),
-            ),
-            vertical[0],
-        );
-        render_scrollbar(
-            frame,
-            vertical[0],
-            total_lines,
-            app.diff_viewport_height as usize,
-            scroll_position,
-        );
+        render_file_diff(frame, app, vertical[0]);
 
         app.layout.status_bar = vertical[1];
         let status_bar = StatusBar::new(app);
@@ -224,22 +193,26 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     app.files_pane_scroll = files_widget.scroll_offset(files_area);
 
     // Render widgets
-    frame.render_stateful_widget(
-        GraphViewWidget::new(app, graph_area.width),
-        graph_area,
-        &mut app.graph_list_state,
-    );
+    if replace_graph && matches!(app.mode, AppMode::FileDiff { .. }) {
+        render_file_diff(frame, app, graph_area);
+    } else {
+        frame.render_stateful_widget(
+            GraphViewWidget::new(app, graph_area.width),
+            graph_area,
+            &mut app.graph_list_state,
+        );
+        render_scrollbar(
+            frame,
+            graph_area,
+            app.graph_layout.nodes.len(),
+            graph_area.height.saturating_sub(2) as usize,
+            app.graph_list_state.offset(),
+        );
+    }
     frame.render_widget(commit_widget, commit_area);
     frame.render_widget(files_widget, files_area);
 
     // Scrollbars
-    render_scrollbar(
-        frame,
-        graph_area,
-        app.graph_layout.nodes.len(),
-        graph_area.height.saturating_sub(2) as usize,
-        app.graph_list_state.offset(),
-    );
     render_scrollbar(
         frame,
         commit_area,
@@ -301,6 +274,45 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         }
         _ => {}
     }
+}
+
+/// Render the file diff pane and its scrollbar into `area`
+fn render_file_diff(frame: &mut Frame, app: &mut App, area: Rect) {
+    let AppMode::FileDiff {
+        content,
+        rendered_lines,
+        scroll_offset,
+        horizontal_offset,
+        file_index,
+        file_list,
+        ..
+    } = &app.mode
+    else {
+        return;
+    };
+
+    // Update viewport dimensions for scroll calculations (minus borders)
+    app.diff_viewport_height = area.height.saturating_sub(2);
+    app.diff_viewport_width = area.width.saturating_sub(2);
+
+    frame.render_widget(
+        FileDiffViewWidget::new(
+            content,
+            rendered_lines,
+            *scroll_offset,
+            *horizontal_offset,
+            *file_index,
+            file_list.len(),
+        ),
+        area,
+    );
+    render_scrollbar(
+        frame,
+        area,
+        rendered_lines.len(),
+        app.diff_viewport_height as usize,
+        *scroll_offset,
+    );
 }
 
 /// Render branch info popup when multiple branches exist on selected node

@@ -154,21 +154,31 @@ fn handle_click(app: &mut App, x: u16, y: u16) {
                     app.focused_pane = FocusedPane::Detail;
                 }
             } else if contains(layout.files, x, y) {
-                let Some(row) = inner_row(layout.files, y) else {
-                    return;
-                };
-                let line_idx = app.files_pane_scroll as usize + row as usize;
-                // The first two lines of the pane are the summary header
-                if line_idx < 2 {
-                    return;
-                }
-                app.open_file_select(line_idx - 2);
-                if is_double {
-                    dispatch(app, Action::OpenFileDiff);
-                }
+                click_file(app, y, is_double);
             }
         }
-        // FileDiff / Input / Confirm: keyboard only for now
+        // With the diff in the graph pane, the file list stays clickable
+        AppMode::FileDiff { .. } if app.file_view_replace() && contains(app.layout.files, x, y) => {
+            click_file(app, y, false);
+        }
+        // Fullscreen FileDiff / Input / Confirm: keyboard only for now
         _ => {}
+    }
+}
+
+/// Click on a row of the file list: select it, and open its diff when `open`
+/// or when the diff replaces the graph pane.
+fn click_file(app: &mut App, y: u16, open: bool) {
+    let Some(row) = inner_row(app.layout.files, y) else {
+        return;
+    };
+    let line_idx = app.files_pane_scroll as usize + row as usize;
+    // The first two lines of the pane are the summary header
+    if line_idx < 2 {
+        return;
+    }
+    app.open_file_select(line_idx - 2);
+    if (open || app.file_view_replace()) && matches!(app.mode, AppMode::FileSelect { .. }) {
+        dispatch(app, Action::OpenFileDiff);
     }
 }

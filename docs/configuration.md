@@ -44,6 +44,19 @@ show_tags = false
 
 Press `t` in the TUI to toggle tags for the current session.
 
+## File diff view
+
+By default, opening a file diff takes over the whole screen. To draw it in the
+graph pane instead, keeping commit detail and the file list visible:
+
+```toml
+[ui]
+# "fullscreen" (default) or "replace"
+file_view = "replace"
+```
+
+The config can be overridden for a single run with `keifu --file-view replace`.
+
 ### Options
 
 | Key | Type | Default | Description |
@@ -54,6 +67,7 @@ Press `t` in the TUI to toggle tags for the current session.
 | `fetch_interval` | integer | `60` | Interval in seconds for remote fetch (minimum: 10) |
 | `graph.show_remote_branches` | bool | `true` | Show remote branches and commits reachable only from remote branches |
 | `graph.show_tags` | bool | `true` | Show tag labels on commits |
+| `ui.file_view` | string | `"fullscreen"` | Draw the file diff fullscreen, or in place of the graph pane (`"replace"`) |
 
 ### Disabling auto-refresh
 

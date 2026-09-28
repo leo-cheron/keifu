@@ -14,7 +14,7 @@ use git2::Oid;
 
 use crate::{
     action::Action,
-    config::Config,
+    config::{Config, FileView},
     git::{
         build_graph,
         graph::GraphLayout,
@@ -1578,6 +1578,14 @@ impl App {
             _ => {}
         }
         Ok(())
+    }
+
+    pub fn set_file_view(&mut self, file_view: FileView) {
+        self.config.ui.file_view = file_view;
+    }
+
+    pub fn file_view_replace(&self) -> bool {
+        self.config.ui.file_view == FileView::Replace
     }
 
     fn enter_file_diff(

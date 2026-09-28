@@ -251,13 +251,9 @@ pub struct FileListWidget {
 
 impl FileListWidget {
     pub fn new(app: &App) -> Self {
-        let file_scroll = match &app.mode {
-            AppMode::FileSelect { selected_index, .. } => *selected_index as u16,
-            _ => 0,
-        };
         Self {
             content: Self::build_content(app),
-            file_scroll,
+            file_scroll: Self::selected_file_index(app).unwrap_or(0) as u16,
             focused: matches!(app.mode, AppMode::FileSelect { .. }),
         }
     }
@@ -270,11 +266,17 @@ impl FileListWidget {
         }
     }
 
-    fn build_content(app: &App) -> FileListContent {
-        let selected_file_index = match &app.mode {
+    /// Highlighted file, also while its diff replaces the graph pane
+    fn selected_file_index(app: &App) -> Option<usize> {
+        match &app.mode {
             AppMode::FileSelect { selected_index, .. } => Some(*selected_index),
+            AppMode::FileDiff { file_index, .. } if app.file_view_replace() => Some(*file_index),
             _ => None,
-        };
+        }
+    }
+
+    fn build_content(app: &App) -> FileListContent {
+        let selected_file_index = Self::selected_file_index(app);
 
         let stage_states = app.is_uncommitted_selected().then_some(&app.stage_states);
 
