@@ -55,6 +55,9 @@ fn main() -> Result<()> {
 
     configure_git_extensions()?;
 
+    // Load syntax highlighting in the background so the first file open is fast
+    std::thread::spawn(ui::file_diff_view::prewarm);
+
     // Initialize application
     let mut app = App::new()?;
 

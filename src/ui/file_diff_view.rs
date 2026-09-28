@@ -22,7 +22,17 @@ use super::{render_placeholder_block, MIN_WIDGET_HEIGHT, MIN_WIDGET_WIDTH};
 static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
 static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
+/// Load the syntax and theme sets ahead of the first file open
+pub fn prewarm() {
+    LazyLock::force(&SYNTAX_SET);
+    LazyLock::force(&THEME_SET);
+}
+
 const THEME_NAME: &str = "base16-eighties.dark";
+
+/// Lines longer than this (bytes) are shown unhighlighted: syntect's regexes
+/// take seconds on minified/generated lines hundreds of KB long.
+const MAX_HIGHLIGHT_LINE_LEN: usize = 2048;
 
 // Diff background colors
 const BG_ADD: Color = Color::Rgb(0, 50, 0);
@@ -141,6 +151,16 @@ fn compute_word_emphasis(
 // --- Syntax highlighting helpers ---
 
 fn highlight_line_owned(hl: &mut HighlightLines, content: &str) -> Vec<(SyntectStyle, String)> {
+    let plain = || {
+        let style = SyntectStyle {
+            foreground: syntect::highlighting::Color::WHITE,
+            ..SyntectStyle::default()
+        };
+        vec![(style, content.to_string())]
+    };
+    if content.len() > MAX_HIGHLIGHT_LINE_LEN {
+        return plain();
+    }
     let line = format!("{}\n", content);
     match hl.highlight_line(&line, &SYNTAX_SET) {
         Ok(spans) => {
@@ -156,7 +176,7 @@ fn highlight_line_owned(hl: &mut HighlightLines, content: &str) -> Vec<(SyntectS
                 result
             }
         }
-        Err(_) => vec![(SyntectStyle::default(), content.to_string())],
+        Err(_) => plain(),
     }
 }
 
