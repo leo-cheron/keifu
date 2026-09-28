@@ -150,22 +150,28 @@ impl CommitDiffInfo {
     }
 
     fn scan_diff(diff: &Diff) -> Result<DiffScan> {
-        let _ = diff.stats()?;
         let mut files = Vec::with_capacity(diff.deltas().len());
         let mut all_paths = HashSet::new();
 
-        for (delta_idx, delta) in diff.deltas().enumerate() {
-            let Some((kind, path, is_binary)) = Self::diff_entry(delta) else {
+        for delta_idx in 0..diff.deltas().len() {
+            // Generating the patch loads the blobs and sets the delta's binary
+            // flag, so read the entry afterwards. One pass: no separate stats().
+            let patch = Patch::from_diff(diff, delta_idx)?;
+            let Some((kind, path, is_binary)) =
+                diff.get_delta(delta_idx).and_then(Self::diff_entry)
+            else {
                 continue;
             };
 
             let path_buf = path.to_path_buf();
             all_paths.insert(path_buf.clone());
 
-            let (insertions, deletions) = if is_binary {
-                (0, 0)
-            } else {
-                Self::line_stats_for_delta(diff, delta_idx)?
+            let (insertions, deletions) = match patch {
+                Some(patch) if !is_binary => {
+                    let (_, insertions, deletions) = patch.line_stats()?;
+                    (insertions, deletions)
+                }
+                _ => (0, 0),
             };
             files.push(FileDiffInfo {
                 path: path_buf,

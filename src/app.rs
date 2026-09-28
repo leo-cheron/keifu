@@ -266,6 +266,7 @@ pub struct App {
     uncommitted_cache_key: Option<WorkingTreeStatus>,
     selected_diff_target: Option<DiffTarget>,
     selected_diff_target_changed_at: Instant,
+    diff_debounce_until: Instant,
 
     // Flags
     pub should_quit: bool,
@@ -402,6 +403,7 @@ impl App {
             uncommitted_cache_key: None,
             selected_diff_target: None,
             selected_diff_target_changed_at: now,
+            diff_debounce_until: now,
             should_quit: false,
             pending_refresh: false,
             diff_viewport_height: 40,
@@ -488,8 +490,14 @@ impl App {
     fn sync_selected_diff_target(&mut self) -> Option<DiffTarget> {
         let target = self.current_diff_target();
         if self.selected_diff_target != target {
+            let now = Instant::now();
+            // Leading-edge debounce: an isolated change (a click) loads at
+            // once; only a change hot on the heels of another (scrolling) waits.
+            let rapid =
+                now.duration_since(self.selected_diff_target_changed_at) < DIFF_LOAD_DEBOUNCE;
+            self.diff_debounce_until = if rapid { now + DIFF_LOAD_DEBOUNCE } else { now };
             self.selected_diff_target = target;
-            self.selected_diff_target_changed_at = Instant::now();
+            self.selected_diff_target_changed_at = now;
             self.detail_scroll = 0;
         }
         target
@@ -517,12 +525,16 @@ impl App {
     }
 
     fn is_diff_debouncing_for_target(&self, target: DiffTarget) -> bool {
-        self.selected_diff_target == Some(target)
-            && self.selected_diff_target_changed_at.elapsed() < DIFF_LOAD_DEBOUNCE
+        self.selected_diff_target == Some(target) && Instant::now() < self.diff_debounce_until
     }
 
     fn has_in_flight_diff(&self) -> bool {
         self.diff_loading_oid.is_some() || self.uncommitted_diff_loading
+    }
+
+    /// Whether a diff is debouncing or loading, so the UI should poll eagerly
+    pub fn has_pending_diff(&self) -> bool {
+        self.has_in_flight_diff() || Instant::now() < self.diff_debounce_until
     }
 
     /// Refresh repository data
@@ -2273,6 +2285,7 @@ mod tests {
             uncommitted_cache_key: None,
             selected_diff_target: None,
             selected_diff_target_changed_at: now,
+            diff_debounce_until: now,
             should_quit: false,
             pending_refresh: false,
             diff_viewport_height: 40,
@@ -2353,6 +2366,7 @@ mod tests {
             uncommitted_cache_key: None,
             selected_diff_target: Some(diff_target),
             selected_diff_target_changed_at: Instant::now() - DIFF_LOAD_DEBOUNCE,
+            diff_debounce_until: Instant::now(),
             should_quit: false,
             pending_refresh: false,
             diff_viewport_height: 40,

@@ -11,7 +11,10 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, Context, Result};
 use crossterm::event::{self, Event, MouseEvent, MouseEventKind};
 
-const EVENT_POLL_TIMEOUT: Duration = Duration::from_millis(100);
+/// Idle wake-up interval, used for background status polling
+pub const IDLE_POLL_TIMEOUT: Duration = Duration::from_millis(100);
+/// Wake-up interval while a result is pending, so it shows within a frame
+pub const BUSY_POLL_TIMEOUT: Duration = Duration::from_millis(16);
 const MAX_EVENTS_PER_BATCH: usize = 512;
 const MAX_BUFFERED_EVENTS: usize = MAX_EVENTS_PER_BATCH * 2;
 const SCROLL_BURST_GAP: Duration = Duration::from_millis(1);
@@ -102,8 +105,8 @@ impl EventReader {
         })
     }
 
-    pub fn poll_events(&mut self) -> Result<EventBatch> {
-        let first = match self.receiver.recv_timeout(EVENT_POLL_TIMEOUT) {
+    pub fn poll_events(&mut self, timeout: Duration) -> Result<EventBatch> {
+        let first = match self.receiver.recv_timeout(timeout) {
             Ok(message) => message,
             Err(RecvTimeoutError::Timeout) => {
                 return Ok(EventBatch {
