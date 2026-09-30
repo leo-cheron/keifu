@@ -61,6 +61,24 @@ fn offset_index(current: usize, max: usize, delta: i32) -> usize {
 
 fn handle_scroll_delta(app: &mut App, delta: i32, x: u16, y: u16) {
     match &app.mode {
+        // With the diff in the graph pane, the bottom panes keep their own wheel
+        AppMode::FileDiff {
+            file_index,
+            file_list,
+            ..
+        } if app.file_view_replace() && !contains(app.layout.graph, x, y) => {
+            let (current, last) = (*file_index, file_list.len().saturating_sub(1));
+            let layout = app.layout;
+            if contains(layout.commit_detail, x, y) {
+                app.scroll_detail(delta);
+            } else if contains(layout.files, x, y) {
+                let target = offset_index(current, last, delta);
+                if target != current {
+                    app.open_file_select(target);
+                    dispatch(app, Action::OpenFileDiff);
+                }
+            }
+        }
         AppMode::FileDiff { .. } => {
             let viewport = app.diff_viewport_height as usize;
             let AppMode::FileDiff {

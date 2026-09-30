@@ -245,7 +245,8 @@ enum FileListContent {
 /// Changed files pane (right/bottom half of the detail area)
 pub struct FileListWidget {
     content: FileListContent,
-    file_scroll: u16,
+    /// Highlighted file index, kept in view even when the pane isn't focused
+    selected_file: Option<u16>,
     focused: bool,
 }
 
@@ -253,7 +254,7 @@ impl FileListWidget {
     pub fn new(app: &App) -> Self {
         Self {
             content: Self::build_content(app),
-            file_scroll: Self::selected_file_index(app).unwrap_or(0) as u16,
+            selected_file: Self::selected_file_index(app).map(|i| i as u16),
             focused: matches!(app.mode, AppMode::FileSelect { .. }),
         }
     }
@@ -500,9 +501,9 @@ impl FileListWidget {
     /// Scroll offset of the file list so the selected file stays visible.
     /// File lines: 2 header lines (summary + blank) + file entries.
     pub fn scroll_offset(&self, area: Rect) -> u16 {
-        if !self.focused {
+        let Some(selected_file) = self.selected_file else {
             return 0;
-        }
+        };
         let total_lines = match &self.content {
             FileListContent::Diff {
                 rows, hidden_files, ..
@@ -510,7 +511,7 @@ impl FileListWidget {
             _ => 1,
         } as u16;
         let visible_height = area.height.saturating_sub(2); // minus block borders
-        let selected_line = self.file_scroll + 2; // offset for header lines
+        let selected_line = selected_file + 2; // offset for header lines
         let max_scroll = total_lines.saturating_sub(visible_height);
         if visible_height > 0 && selected_line >= visible_height {
             (selected_line - visible_height / 2).min(max_scroll)
